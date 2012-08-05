@@ -10,7 +10,8 @@ downloaded so it's as up-to-date as it can be.
 requirements
 ------------
 
-* Unix
+* Building operating system: Unix
+* Running operating system: Unix, Windows
 * Python 2.x
 
 for downloading of ctypeslib and sdl

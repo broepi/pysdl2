@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from subprocess import call, PIPE
-import shutil, os, re
+import shutil, os, re, urllib
 
 def yesno ():
 
@@ -63,4 +63,13 @@ if yesno ():
 	res = call ("hg clone http://hg.libsdl.org/SDL", shell=True)
 	if res != 0:
 		raise Exception ("Something went wrong with the checkout.")
+	os.chdir (thirddir+"/SDL")
+	print "download cross-configure.sh"
+	urllib.urlretrieve ("http://www.libsdl.org/extras/win32/cross/cross-configure.sh", "cross-configure.sh")
+	print "download cross-make.sh"
+	urllib.urlretrieve ("http://www.libsdl.org/extras/win32/cross/cross-make.sh", "cross-make.sh")
+
+os.chdir (thirddir+"/SDL")
+os.chmod ("cross-configure.sh", 0755)
+os.chmod ("cross-make.sh", 0755)
 

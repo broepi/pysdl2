@@ -3,10 +3,10 @@
 from subprocess import call, PIPE
 import shutil, os, re
 
-def yesno ():
+def yesno (msg = "Do that (or skip?) [Y/n]: "):
 
 	while True:
-		res = raw_input ("Do that (or skip?) [Y/n]: ")
+		res = raw_input (msg)
 		if res == "":
 			res = "y"
 		res = res.lower ()
@@ -27,27 +27,45 @@ print "\nSDL repo is copied into a seperate build dir SDL_build"
 if yesno ():
 	shutil.copytree ("3rd/SDL", "build/SDL", ignore=shutil.ignore_patterns(".hg*"))
 
+print "\nA Linux shared object will be build, you can also cross-build a Windows DLL."
+if yesno ("Yes = Linux , No = Windows [Y/n]: "):
+	platf = "linux"
+	libfilename = "libSDL2.so"
+else:
+	platf = "win"
+	libfilename = "SDL2.dll"
+
 print "\nThe SDL lib will now be build."
 if yesno ():
 	os.chdir ("build/SDL")
 	print "./autogen.sh"
-	res = call ("./autogen.sh", shell=True)
-	if res != 0:
-		raise Exception ("./autogen.sh failed!")
-	print "./configure"
-	res = call ("./configure", shell=True)
-	if res != 0:
-		raise Exception ("./configure failed!")
-	print "make"
-	res = call ("make", shell=True)
-	if res != 0:
-		raise Exception ("make failed!")
+	if platf == "linux":
+		res = call ("./autogen.sh", shell=True)
+		if res != 0:
+			raise Exception ("./autogen.sh failed!")
+		print "./configure"
+		res = call ("./configure", shell=True)
+		if res != 0:
+			raise Exception ("./configure failed!")
+		print "make"
+		res = call ("make", shell=True)
+		if res != 0:
+			raise Exception ("make failed!")
+	elif platf == "win":
+		print "./cross-configure.sh"
+		res = call ("./cross-configure.sh", shell=True)
+		if res != 0:
+			raise Exception ("./configure failed!")
+		print "./cross-make.sh"
+		res = call ("./cross-make.sh", shell=True)
+		if res != 0:
+			raise Exception ("make failed!")
 	os.chdir ("..")
 	print "SDL build successful!"
 	os.chdir (thisdir)
 
-print "\ncopy libSDL2.so to build dir"
-shutil.copy (builddir+"/SDL/build/.libs/libSDL2.so", builddir+"/libSDL2.so")
+print "\ncopy "+libfilename+" to build dir"
+shutil.copy (builddir+"/SDL/build/.libs/"+libfilename, builddir+"/"+libfilename)
 
 print "\nheader => XML"
 res = call ("python "+thirddir+"/ctypeslib/h2xml.py "+builddir+"/SDL/include/SDL.h -o "+builddir+"/SDL.xml -c", shell=True)
@@ -61,7 +79,12 @@ if res != 0:
 
 print "\nXML => python-module"
 # -l specifies the library (shared object) and -r is a regular expression for which symbols to include
-res = call ("python "+thirddir+"/ctypeslib/xml2py.py "+builddir+"/newSDL.xml -o "+builddir+"/SDL_ctypes.py -l "+builddir+"/libSDL2.so -r \"SDL.*\"", shell=True)
+if platf == "linux":
+	res = call ("python "+thirddir+"/ctypeslib/xml2py.py "+builddir+"/newSDL.xml -o "+builddir+"/SDL_ctypes.py -l "+builddir+"/"+libfilename+" -r \"SDL.*\"", shell=True)
+elif platf == "win":
+	res = call ("wine python "+thirddir+"/ctypeslib/xml2py.py "+builddir+"/newSDL.xml -o "+builddir+"/SDL_ctypes.py -l "+builddir+"/"+libfilename+" -r \"SDL.*\"", shell=True)
+if res != 0:
+	raise Exception ("Something went wrong while compiling XML to python-binding.")
 
 print "\nsome transformations ..."
 
@@ -69,11 +92,11 @@ fs = open (builddir+"/SDL_ctypes.py", "r")
 content = fs.read ()
 fs.close ()
 
-content = content.replace ("_libraries['"+builddir+"/libSDL2.so']", "lib")
+content = content.replace ("_libraries['"+builddir+"/"+libfilename+"']", "lib")
 content = re.sub (r"__all__ = \[[^\]]*\]", "", content, 1)
-content = content.replace ("CDLL('"+builddir+"/libSDL2.so')", "CDLL(os.path.dirname(os.path.realpath(__file__))+\"/libSDL2.so\")")
+content = content.replace ("CDLL('"+builddir+"/"+libfilename+"')", "CDLL(os.path.dirname(os.path.realpath(__file__))+\"/"+libfilename+"\")")
 content = "import os\n\n" + content
-print "'"+builddir+"/libSDL2.so'"
+print "'"+builddir+"/"+libfilename+"'"
 
 fs = open (builddir+"/SDL_ctypes.py", "w")
 fs.write (content)
@@ -82,6 +105,6 @@ fs.close ()
 print "\nput all into final dir"
 if not os.path.isdir ("final"):
 	os.mkdir ("final")
-shutil.copy (builddir+"/libSDL2.so", thisdir+"/final/libSDL2.so")
+shutil.copy (builddir+"/"+libfilename, thisdir+"/final/"+libfilename)
 shutil.copy (builddir+"/SDL_ctypes.py", thisdir+"/final/SDL2.py")
 

@@ -2,8 +2,8 @@
 A first rudimentary sample using the pysdl2 binding
 """
 
-import sys
-sys.path.append ("../final")
+import sys, os
+sys.path.append (os.path.dirname (os.path.realpath (__file__))+"/../final")
 
 from SDL2 import *
 
